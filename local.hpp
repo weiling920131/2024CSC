@@ -24,3 +24,16 @@ void getMACAddress(const char *interface, std::array<uint8_t, 6> &src_mac);
 void getMask(const char *interface, struct sockaddr_in &netmask);
 void getSourceIP(const char *interface, struct sockaddr_in &ipv4);
 void getDefaultGateway(const char *interface, struct sockaddr_in &gateway_addr);
+
+// class AccessInfo{
+//     std::array<uint8_t, 6> src_mac;
+//     struct sockaddr_in src_ip;
+//     struct sockaddr_in netmask;
+//     struct sockaddr_in gateway_ip;
+//     struct sockaddr_ll device;
+
+//     void getMACAddress(const char *interface, std::array<uint8_t, 6> &src_mac);
+//     void getMask(const char *interface, struct sockaddr_in &netmask);
+//     void getSourceIP(const char *interface, struct sockaddr_in &ipv4);
+//     void getDefaultGateway(const char *interface, struct sockaddr_in &gateway_addr);
+// };
