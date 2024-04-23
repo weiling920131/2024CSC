@@ -6,10 +6,10 @@
 #include <sys/types.h>   // for uint8_t
 #include <unistd.h>      // for close()
 
-#include <array>    // for std::array
 #include <cstdio>   // for fopen(), fgets(), perror()
 #include <cstdlib>  // for exit()
 #include <cstring>  // for strcmp(), memset(), memcpy()
+#include <vector>
 
 // Define a struct for local info
 struct LocalInfo {
@@ -26,7 +26,7 @@ void getSourceIP(const char *interface, struct sockaddr_in &ipv4);
 void getDefaultGateway(const char *interface, struct sockaddr_in &gateway_addr);
 
 // class AccessInfo{
-//     std::array<uint8_t, 6> src_mac;
+//     std::vector<uint8_t> src_mac(6);
 //     struct sockaddr_in src_ip;
 //     struct sockaddr_in netmask;
 //     struct sockaddr_in gateway_ip;
