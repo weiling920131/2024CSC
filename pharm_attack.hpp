@@ -10,9 +10,13 @@
 #include <string>
 #include <vector>
 
+// Define some constants.
+#define IP4_HDRLEN 20    // IPv4 header length
+#define ETH2_HEADER_LEN 14
+
 struct NFQData{
-  struct LocalInfo local_info;
-  std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> ip_mac_pairs;
+  AccessInfo info;
+  std::map<std::vector<uint8_t>, std::vector<uint8_t>> ip_mac_pairs;
 };
 
 struct dns_hdr {
@@ -52,10 +56,4 @@ struct udp_hdr {
   uint16_t checksum;
 };
 
-// Define some constants.
-#define IP4_HDRLEN 20    // IPv4 header length
-#define ETH2_HEADER_LEN 14
-
-bool modifyPacket(uint8_t *buffer, std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> &ip_mac_pairs, struct LocalInfo local_info);
-void sendMarkedPacket(uint8_t *buffer, int bytes, int sd, struct LocalInfo local_info);
-void receiveHandler(int sd, std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> &ip_mac_pairs, struct LocalInfo local_info);
+void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info);

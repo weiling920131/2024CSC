@@ -59,16 +59,16 @@ void AccessInfo::getDefault() {
     fclose(fp);
 }
 
-int main(int argc, char **argv){
-    int sockfd;
-    AccessInfo access_info;
+// int main(int argc, char **argv){
+//     int sockfd;
+//     AccessInfo access_info;
 
-    access_info.getInfo();
+//     access_info.getInfo();
 
-    printf("src_ip: %s\n", inet_ntoa(access_info.src_ip.sin_addr));
-    printf("src_mac: %02x:%02x:%02x:%02x:%02x:%02x\n", access_info.src_mac[0], access_info.src_mac[1], access_info.src_mac[2], access_info.src_mac[3], access_info.src_mac[4], access_info.src_mac[5]);
-    printf("netmask: %s\n", inet_ntoa(access_info.netmask.sin_addr));
-    printf("Index for interface %s is %i\n", access_info.interface, access_info.device.sll_ifindex);
-    printf("gateway_ip: %s\n", inet_ntoa(access_info.gateway_ip.sin_addr));
-    return 0;
-}
+//     printf("src_ip: %s\n", inet_ntoa(access_info.src_ip.sin_addr));
+//     printf("src_mac: %02x:%02x:%02x:%02x:%02x:%02x\n", access_info.src_mac[0], access_info.src_mac[1], access_info.src_mac[2], access_info.src_mac[3], access_info.src_mac[4], access_info.src_mac[5]);
+//     printf("netmask: %s\n", inet_ntoa(access_info.netmask.sin_addr));
+//     printf("Index for interface %s is %i\n", access_info.interface, access_info.device.sll_ifindex);
+//     printf("gateway_ip: %s\n", inet_ntoa(access_info.gateway_ip.sin_addr));
+//     return 0;
+// }
