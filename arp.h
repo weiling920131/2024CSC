@@ -1,4 +1,4 @@
-#include "local.hpp"
+#include "local.h"
 
 #include <linux/if_arp.h>
 #include <netinet/ip_icmp.h>

