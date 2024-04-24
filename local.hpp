@@ -4,8 +4,11 @@
 #include <sys/socket.h>  
 #include <net/if.h> 
 #include <netinet/in.h> 
+#include <arpa/inet.h>
 #include <unistd.h>  
 #include <cstdlib>  
+#include <cstdio>   
+#include <cstring>
 #include <vector>
 
 class AccessInfo{
@@ -15,6 +18,7 @@ public:
     struct sockaddr_in netmask;
     struct sockaddr_in gateway_ip;
     struct sockaddr_ll device;
+    char interface[20];
 
     AccessInfo(){
         src_mac.resize(6);
@@ -22,6 +26,6 @@ public:
 
     ~AccessInfo() = default;
 
-    void getInfo(char *interface);
-    void getDefaultGateway(char *interface);
+    void getInfo();
+    void getDefault();
 };
