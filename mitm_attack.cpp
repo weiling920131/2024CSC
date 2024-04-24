@@ -83,7 +83,7 @@ void printUsernameAndPassword(uint8_t *payload, int payload_length) {
 }
 
 // Function to handle receiving responses
-void receiveHandler(int sd, std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> &ip_mac_pairs, struct LocalInfo local_info) {
+void receiveHandler(int sd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, struct LocalInfo local_info) {
     uint8_t buffer[IP_MAXPACKET];
     struct sockaddr saddr;
     int saddr_len = sizeof(saddr);
@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
     sendARPRequest(sd, local_info);
 
     // Use a table to save IP-MAC pairs
-    std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> ip_mac_pairs;
+    std::map<std::vector<uint8_t>, std::vector<uint8_t>> ip_mac_pairs;
 
     // Start the thread
     std::thread send_thread(sendSpoofedARPReply, sd, std::ref(ip_mac_pairs), local_info);
