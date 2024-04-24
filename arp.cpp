@@ -97,7 +97,7 @@ void sendSpoofedARPReply(int sd, std::map<std::vector<uint8_t>, std::vector<uint
                 memcpy(ether_frame.data() + ETH_HDRLEN, &arphdr, ARP_HDRLEN * sizeof(uint8_t));
 
                 // Send ethernet frame to socket.
-                if (sendto(sd, ether_frame.data(), frame_length, 0, (struct sockaddr *)&info.device, sizeof(info.device)) <= 0) {
+                if (sendto(sd, ether_frame.data(), frame_length, 0, (struct sockaddr *)&info.device, sizeof(info.device)) < 0) {
                     perror("sendto() failed");
                     exit(EXIT_FAILURE);
                 }
@@ -167,7 +167,7 @@ void sendARPRequest(int sd, AccessInfo info) {
         std::copy(reinterpret_cast<uint8_t*>(&arphdr), reinterpret_cast<uint8_t*>(&arphdr) + ARP_HDRLEN, ether_frame.begin() + ETH_HDRLEN);
 
         // Send ethernet frame to socket.
-        if ((bytes = sendto(sd, ether_frame.data(), frame_length, 0, (struct sockaddr *)&info.device, sizeof(info.device))) <= 0) {
+        if ((bytes = sendto(sd, ether_frame.data(), frame_length, 0, (struct sockaddr *)&info.device, sizeof(info.device))) < 0) {
             perror("sendto() failed");
             exit(EXIT_FAILURE);
         }

