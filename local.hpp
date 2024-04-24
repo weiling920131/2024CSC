@@ -7,6 +7,9 @@
 #include <unistd.h>  
 #include <cstdlib>  
 #include <vector>
+#include <cstdio>   
+#include <cstring>
+#include <arpa/inet.h>
 
 class AccessInfo{
 public:

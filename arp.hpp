@@ -17,12 +17,12 @@ struct arp_hdr {
     uint8_t hlen;
     uint8_t plen;
     uint16_t opcode;
-    std::vector<uint8_t> sender_mac;
-    std::vector<uint8_t> sender_ip;
-    std::vector<uint8_t> target_mac;
-    std::vector<uint8_t> target_ip;
+    uint8_t sender_mac[6];
+    uint8_t sender_ip[4];
+    uint8_t target_mac[6];
+    uint8_t target_ip[4];
 };
 
-void sendARPRequest(int sd, struct LocalInfo local_info);
-void sendSpoofedARPReply(int sd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, struct LocalInfo local_info);
-void parseARPReply(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, struct LocalInfo local_info);
+void sendARPRequest(int sd, AccessInfo info);
+void sendSpoofedARPReply(int sd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info);
+void parseARPReply(uint8_t *buffer, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info);

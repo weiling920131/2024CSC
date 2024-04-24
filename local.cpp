@@ -1,7 +1,5 @@
 #include "local.hpp"     
-#include <cstdio>   
-#include <cstring>
-#include <arpa/inet.h>
+
 
 void AccessInfo::getInfo(char *interface){
     int sockfd;

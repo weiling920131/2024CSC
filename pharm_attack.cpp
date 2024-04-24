@@ -178,7 +178,7 @@ void send_dns_reply(unsigned char *payload, int len, int qlen, struct NFQData *i
 }
 
 // Function to handle receiving responses
-void receiveHandler(int sd, std::map<std::array<uint8_t, 4>, std::array<uint8_t, 6>> &ip_mac_pairs, struct LocalInfo local_info) {
+void receiveHandler(int sd, std::map<std::vector<uint8_t>, std::vector<uint8_t>> &ip_mac_pairs, AccessInfo info) {
     uint8_t buffer[IP_MAXPACKET];
     struct sockaddr saddr;
     int saddr_len = sizeof(saddr);
@@ -193,7 +193,7 @@ void receiveHandler(int sd, std::map<std::array<uint8_t, 4>, std::array<uint8_t,
 
         // Check if packet is an ARP packet
         if (buffer[12] == ETH_P_ARP / 256 && buffer[13] == ETH_P_ARP % 256) {
-            parseARPReply(buffer, ip_mac_pairs, local_info);
+            parseARPReply(buffer, ip_mac_pairs, info);
         }
         memset(buffer, 0, IP_MAXPACKET);
         continue;
