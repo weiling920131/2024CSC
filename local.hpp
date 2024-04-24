@@ -10,6 +10,9 @@
 #include <cstdio>   
 #include <cstring>
 #include <vector>
+#include <cstdio>   
+#include <cstring>
+#include <arpa/inet.h>
 
 class AccessInfo{
 public:

