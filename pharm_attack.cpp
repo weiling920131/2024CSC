@@ -25,13 +25,13 @@ void send_data_udp(char *data, int len, struct NFQData *info) {
     unsigned char my_mac[6];
     std::copy(src_mac.begin(), src_mac.end(), my_mac);
     // dump ifidx, src_mac, my_ip
-    printf("ifidx: %d\n", ifidx);
-    printf("src_mac: ");
-    for (int i = 0; i < 6; i++) {
-        printf("%02x ", my_mac[i]);
-    }
-    printf("\n");
-    printf("my_ip: %s\n", inet_ntoa(info->info.src_ip.sin_addr));
+    // printf("ifidx: %d\n", ifidx);
+    // printf("src_mac: ");
+    // for (int i = 0; i < 6; i++) {
+    //     printf("%02x ", my_mac[i]);
+    // }
+    // printf("\n");
+    // printf("my_ip: %s\n", inet_ntoa(info->info.src_ip.sin_addr));
 
     char *sendbuf = new char[1024];
     memset(sendbuf, 0, 1024);
