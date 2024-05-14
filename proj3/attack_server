@@ -3,6 +3,10 @@
 import socket
 import sys
 
+if len(sys.argv) != 2:
+    print("Usage:", sys.argv[0], "<attacker_port>")
+    sys.exit(1)
+
 # Host and port information
 HOST = '0.0.0.0'
 PORT = int(sys.argv[1])
